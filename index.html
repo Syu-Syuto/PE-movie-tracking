@@ -5,193 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>体育授業用 動画フォーム分析ツール</title>
     <style>
-        body {
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            color: white;
-        }
-        .container {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        /* 動画もCanvasも両方表示し、重ねる */
-        video, canvas {
-            position: absolute;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-        }
-        .mirrored {
-            transform: scaleX(-1);
-        }
-        canvas {
-            z-index: 2;
-            pointer-events: none; /* クリックを貫通させて下の動画UI等を邪魔しないようにする */
-        }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; margin: 0; padding: 0; background-color: #000; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; color: white; }
+        .container { position: relative; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; }
+        video, canvas { position: absolute; max-width: 100%; max-height: 100%; object-fit: contain; }
+        .mirrored { transform: scaleX(-1); }
+        canvas { z-index: 2; pointer-events: none; }
         
-        .file-overlay {
-            position: absolute;
-            z-index: 30;
-            background: rgba(20, 20, 20, 0.9);
-            padding: 40px;
-            border-radius: 20px;
-            border: 2px dashed #555;
-            text-align: center;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-        }
-        .file-input-btn {
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            margin-top: 15px;
-            transition: background 0.2s;
-        }
+        .file-overlay { position: absolute; z-index: 30; background: rgba(20, 20, 20, 0.9); padding: 40px; border-radius: 20px; border: 2px dashed #555; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .file-input-btn { background-color: #4CAF50; color: white; padding: 15px 30px; font-size: 18px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 15px; transition: background 0.2s; }
         .file-input-btn:hover { background-color: #45a049; }
 
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 18px;
-            z-index: 31;
-            background: rgba(0,0,0,0.8);
-            padding: 15px 30px;
-            border-radius: 30px;
-            border: 1px solid #555;
-            display: none;
-        }
+        .loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 18px; z-index: 31; background: rgba(0,0,0,0.8); padding: 15px 30px; border-radius: 30px; border: 1px solid #555; display: none; text-align: center; line-height: 1.5; }
 
-        .floating-btn {
-            position: absolute;
-            z-index: 20;
-            padding: 12px 20px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5);
-            transition: background 0.3s;
-        }
-        .top-right {
-            top: 20px;
-            right: 20px;
-            background-color: #444;
-            color: white;
-            border-radius: 25px;
-            display: none;
-        }
+        .floating-btn { position: absolute; z-index: 20; padding: 12px 20px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.5); transition: background 0.3s; }
+        
+        /* 書き出しボタン（左上） */
+        .top-left { top: 20px; left: 20px; background-color: #2196F3; color: white; border-radius: 25px; display: none; }
+        .top-left:hover { background-color: #1976D2; }
+        .top-left:disabled { background-color: #555; cursor: not-allowed; }
+
+        .top-right { top: 20px; right: 20px; background-color: #444; color: white; border-radius: 25px; display: none; }
         .top-right:hover { background-color: #555; }
 
-        .control-panel {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 20;
-            background: rgba(30, 30, 30, 0.95);
-            padding: 15px 25px;
-            border-radius: 20px;
-            display: none;
-            flex-direction: column;
-            gap: 12px;
-            width: 80%;
-            max-width: 600px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
-            border: 1px solid #555;
-        }
-        .seekbar-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            width: 100%;
-        }
-        .seekbar {
-            flex-grow: 1;
-            cursor: pointer;
-            height: 8px;
-        }
-        .time-display {
-            font-size: 14px;
-            font-family: monospace;
-            min-width: 45px;
-            text-align: center;
-        }
-        .button-row {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            align-items: center;
-        }
-        .playback-btn {
-            background: #444;
-            border: none;
-            color: white;
-            font-size: 15px;
-            font-weight: bold;
-            cursor: pointer;
-            padding: 8px 16px;
-            border-radius: 20px;
-            transition: background 0.2s;
-        }
+        .control-panel { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 20; background: rgba(30, 30, 30, 0.95); padding: 15px 25px; border-radius: 20px; display: none; flex-direction: column; gap: 12px; width: 80%; max-width: 600px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); border: 1px solid #555; transition: opacity 0.3s; }
+        .seekbar-container { display: flex; align-items: center; gap: 10px; width: 100%; }
+        .seekbar { flex-grow: 1; cursor: pointer; height: 8px; }
+        .time-display { font-size: 14px; font-family: monospace; min-width: 45px; text-align: center; }
+        .button-row { display: flex; justify-content: center; gap: 15px; align-items: center; }
+        .playback-btn { background: #444; border: none; color: white; font-size: 15px; font-weight: bold; cursor: pointer; padding: 8px 16px; border-radius: 20px; transition: background 0.2s; }
         .playback-btn:hover { background: #555; }
+        .playback-btn:disabled { color: #888; background: #333; cursor: not-allowed; }
         #btn_play_pause { background: #4CAF50; }
         #btn_play_pause:hover { background: #45a049; }
 
-        .sidebar {
-            position: absolute;
-            top: 0;
-            right: -320px;
-            width: 320px;
-            height: 100%;
-            background: rgba(30, 30, 30, 0.95);
-            backdrop-filter: blur(8px);
-            transition: right 0.3s ease;
-            z-index: 15;
-            box-sizing: border-box;
-            padding: 90px 20px 30px 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-            border-left: 1px solid #444;
-        }
+        .sidebar { position: absolute; top: 0; right: -320px; width: 320px; height: 100%; background: rgba(30, 30, 30, 0.95); backdrop-filter: blur(8px); transition: right 0.3s ease; z-index: 15; box-sizing: border-box; padding: 90px 20px 30px 20px; display: flex; flex-direction: column; gap: 25px; border-left: 1px solid #444; }
         .sidebar.open { right: 0; }
-        .sidebar-toggle {
-            position: absolute;
-            top: 50%;
-            left: -45px;
-            width: 45px;
-            height: 100px;
-            background: rgba(30, 30, 30, 0.95);
-            border-left: 1px solid #444;
-            border-top: 1px solid #444;
-            border-bottom: 1px solid #444;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            cursor: pointer;
-            border-radius: 12px 0 0 12px;
-            transform: translateY(-50%);
-            font-size: 20px;
-        }
-        .sidebar-toggle:hover { background: rgba(60, 60, 60, 0.95); }
+        .sidebar-toggle { position: absolute; top: 50%; left: -45px; width: 45px; height: 100px; background: rgba(30, 30, 30, 0.95); border-left: 1px solid #444; border-top: 1px solid #444; border-bottom: 1px solid #444; display: flex; justify-content: center; align-items: center; cursor: pointer; border-radius: 12px 0 0 12px; transform: translateY(-50%); font-size: 20px; }
         .form-group { display: flex; flex-direction: column; gap: 8px; }
         .form-group label { font-size: 13px; color: #aaa; font-weight: bold; }
         .mode-select { padding: 12px; font-size: 15px; border-radius: 6px; border: 1px solid #555; background-color: #222; color: white; cursor: pointer; width: 100%; }
@@ -210,10 +59,11 @@
 
         <div id="loading" class="loading">AIモデルを読み込み中...</div>
         
-        <!-- スマホブラウザ対策: display:none を外し、動画自体をそのまま画面に映す -->
         <video id="analytical_video" playsinline muted></video>
         <canvas id="output_canvas"></canvas>
         
+        <button id="export_video_btn" class="floating-btn top-left">⬇ トラッキング保存</button>
+
         <button id="change_video_btn" class="floating-btn top-right" onclick="document.getElementById('video_file_input').click()">🔄 動画を変更</button>
 
         <div id="control_panel" class="control-panel">
@@ -275,7 +125,7 @@
                 { id: "basket", name: "バスケ (シュート)", desc: "【バスケ】\nシュート時の右膝のタメと右肘の伸びを確認します。", highlights: [{p1:12, p2:14, p3:16, color:"#9C27B0", label:"右肘"}, {p1:24, p2:26, p3:28, color:"#4CAF50", label:"右膝"}] },
                 { id: "soccer", name: "サッカー (キック)", desc: "【サッカー】\nキック時の軸足の安定と蹴り脚の振りかぶりを確認します。", highlights: [{p1:23, p2:25, p3:27, color:"#009688", label:"左脚"}, {p1:24, p2:26, p3:28, color:"#009688", label:"右脚"}] },
                 { id: "handball", name: "ハンドボール (投球)", desc: "【ハンド】\nジャンプシュート時の体の反りと腕の振りを確認します。", highlights: [{p1:12, p2:14, p3:16, color:"#E91E63", label:"右肘"}] },
-                { id: "volley_receive", name: "バレー (レシーブ)", desc: "【バレー】\nレシーブ時の重心の低さ(両膝の角度)を確認します。", highlights: [{p1:23, p2:25, p3:27, color:"#3F51B5", label:"左膝"}, {p1:24, p2:26, p3:28, color:"#3F51B5", border:"#3F51B5", label:"右膝"}] },
+                { id: "volley_receive", name: "バレー (レシーブ)", desc: "【バレー】\nレシーブ時の重心の低さ(両膝の角度)を確認します。", highlights: [{p1:23, p2:25, p3:27, color:"#3F51B5", label:"左膝"}, {p1:24, p2:26, p3:28, color:"#3F51B5", label:"右膝"}] },
                 { id: "volley_spike", name: "バレー (スパイク)", desc: "【バレー】\nスパイク時の腕の引きと高い打点を確認します。", highlights: [{p1:12, p2:14, p3:16, color:"#F44336", label:"右腕"}] },
                 { id: "racket", name: "卓球/バド/テニス", desc: "【ラケット競技】\nスイング時の腕の角度と踏み込み足を確認します。", highlights: [{p1:12, p2:14, p3:16, color:"#FF5722", label:"右腕スイング"}] },
                 { id: "soft_pitch", name: "ソフトボール (投球)", desc: "【ソフト投球】\n投球腕のしなりと角度を確認します。", highlights: [{p1:12, p2:14, p3:16, color:"#673AB7", label:"右腕"}] },
@@ -289,7 +139,9 @@
         const loadingDiv = document.getElementById("loading");
         const fileOverlay = document.getElementById("file_overlay");
         const fileInput = document.getElementById("video_file_input");
+        
         const controlPanel = document.getElementById("control_panel");
+        const exportVideoBtn = document.getElementById("export_video_btn");
         const changeVideoBtn = document.getElementById("change_video_btn");
         const instructionDiv = document.getElementById("instruction");
 
@@ -316,6 +168,11 @@
         let currentMode = "all";
         let currentSportConfig = sportsData["others"][0];
 
+        // 書き出し用変数
+        let isExporting = false;
+        let exportRecorder = null;
+        let exportChunks = [];
+
         function updateModeSelect() {
             modeSelect.innerHTML = "";
             sportsData[currentCategory].forEach(sport => {
@@ -330,7 +187,6 @@
         }
         updateModeSelect();
 
-        // 1. AIモデルの初期化
         async function initPoseLandmarker() {
             loadingDiv.style.display = "block";
             const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.8/wasm");
@@ -339,14 +195,12 @@
                     modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`, 
                     delegate: "CPU" 
                 },
-                // スマホでシーク（コマ戻し等）をしてもエラーにならないように、IMAGE（静止画）モードで動作させます
                 runningMode: "IMAGE" 
             });
             loadingDiv.style.display = "none";
         }
         initPoseLandmarker();
 
-        // 2. 動画ファイル読み込みイベント
         fileInput.addEventListener("change", (e) => {
             const file = e.target.files[0];
             if (!file) return;
@@ -363,8 +217,8 @@
                 fileOverlay.style.display = "none";
                 controlPanel.style.display = "flex";
                 changeVideoBtn.style.display = "block";
+                exportVideoBtn.style.display = "block";
                 
-                // 動画の解像度に合わせてCanvasサイズを設定
                 canvasElement.width = video.videoWidth;
                 canvasElement.height = video.videoHeight;
                 
@@ -372,20 +226,30 @@
                 timeDuration.innerText = formatTime(video.duration);
                 instructionDiv.innerText = currentSportConfig.desc;
 
-                // iOS Safari対策: 読み込み直後に映像を描画させるため少しだけ時間を進める
-                setTimeout(() => {
-                    video.currentTime = 0.001; 
-                }, 100);
+                setTimeout(() => { video.currentTime = 0.001; }, 100);
             };
         });
 
-        // 再生位置が変更されたら（コマ送り・シークバー操作含む）自動で解析・描画
-        video.addEventListener("seeked", processFrame);
+        video.addEventListener("seeked", () => {
+            if (!isExporting) processFrame();
+        });
+        
         video.addEventListener("timeupdate", () => {
             if (!video.paused) {
                 seekbar.value = video.currentTime;
                 timeCurrent.innerText = formatTime(video.currentTime);
                 processFrame();
+            }
+        });
+
+        // 録画完了時の処理
+        video.addEventListener("ended", () => {
+            isPlaying = false;
+            btnPlayPause.innerText = "▶ 再生";
+            btnPlayPause.style.backgroundColor = "#4CAF50";
+
+            if (isExporting && exportRecorder && exportRecorder.state !== "inactive") {
+                exportRecorder.stop();
             }
         });
 
@@ -437,23 +301,16 @@
             }
         }
 
-        // --- コマ同期フレーム処理 ---
         function processFrame() {
             if (!poseLandmarker || video.readyState < 2) return;
 
-            // Canvasサイズが一致していない場合は補正
             if (canvasElement.width !== video.videoWidth) {
                 canvasElement.width = video.videoWidth;
                 canvasElement.height = video.videoHeight;
             }
 
-            seekbar.value = video.currentTime;
-            timeCurrent.innerText = formatTime(video.currentTime);
-
-            // 静止画モードで安全に解析
             const results = poseLandmarker.detect(video);
 
-            // キャンバスをクリア（動画は背景のvideoタグがそのまま表示されるので描画しない）
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             canvasCtx.save();
             
@@ -461,6 +318,9 @@
                 canvasCtx.translate(canvasElement.width, 0);
                 canvasCtx.scale(-1, 1);
             }
+            
+            // 背景に動画を描画
+            canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
             if (results.landmarks && results.landmarks.length > 0) {
                 const landmarks = results.landmarks[0];
@@ -482,7 +342,6 @@
             canvasCtx.restore();
         }
 
-        // --- 再生ループ制御 ---
         function playLoop() {
             if (isPlaying && !video.paused) {
                 processFrame();
@@ -490,8 +349,9 @@
             }
         }
 
-        // --- コントロールUI 操作イベント ---
+        // --- コントロールUI 操作 ---
         btnPlayPause.addEventListener("click", () => {
+            if (isExporting) return; // 書き出し中は操作不可
             if (video.paused) {
                 video.play();
                 isPlaying = true;
@@ -507,6 +367,7 @@
         });
 
         btnFramePrev.addEventListener("click", () => {
+            if (isExporting) return;
             if (!video.paused) video.pause();
             isPlaying = false;
             btnPlayPause.innerText = "▶ 再生";
@@ -515,6 +376,7 @@
         });
 
         btnFrameNext.addEventListener("click", () => {
+            if (isExporting) return;
             if (!video.paused) video.pause();
             isPlaying = false;
             btnPlayPause.innerText = "▶ 再生";
@@ -523,6 +385,7 @@
         });
 
         seekbar.addEventListener("input", (e) => {
+            if (isExporting) return;
             if (!video.paused) video.pause();
             isPlaying = false;
             btnPlayPause.innerText = "▶ 再生";
@@ -530,13 +393,82 @@
             video.currentTime = e.target.value;
         });
 
-        // --- サイドバーイベント群 ---
+        // --- 動画書き出し機能 ---
+        exportVideoBtn.addEventListener("click", () => {
+            if (isExporting) return;
+            
+            // 書き出し準備
+            isExporting = true;
+            exportChunks = [];
+            video.pause();
+            isPlaying = false;
+            
+            // UIの状態を「書き出し中」に変更
+            controlPanel.style.opacity = "0.3";
+            exportVideoBtn.innerText = "⏳ 書き出し中...";
+            exportVideoBtn.disabled = true;
+            changeVideoBtn.style.display = "none";
+            loadingDiv.style.display = "block";
+            loadingDiv.innerHTML = "トラッキング動画を作成中...<br><span style='font-size:14px;color:#aaa;'>(動画の長さと同じ時間がかかります。このままお待ちください)</span>";
+
+            // 動画を最初まで巻き戻す
+            video.currentTime = 0;
+
+            // 巻き戻し完了を待ってから録画スタート
+            video.addEventListener('seeked', function startExport() {
+                video.removeEventListener('seeked', startExport); // 1回だけ実行
+
+                const stream = canvasElement.captureStream(30); // 30fpsでキャプチャ
+                
+                // スマホ対応のため、録画コーデックはブラウザに任せる
+                let options = { mimeType: 'video/webm' };
+                if (!MediaRecorder.isTypeSupported('video/webm')) {
+                    options = { mimeType: 'video/mp4' }; // Safari用フォールバック
+                }
+                
+                exportRecorder = new MediaRecorder(stream, options);
+
+                exportRecorder.ondataavailable = e => {
+                    if (e.data.size > 0) exportChunks.push(e.data);
+                };
+
+                exportRecorder.onstop = () => {
+                    // 書き出し完了後の処理
+                    isExporting = false;
+                    controlPanel.style.opacity = "1";
+                    exportVideoBtn.innerText = "⬇ トラッキング保存";
+                    exportVideoBtn.disabled = false;
+                    changeVideoBtn.style.display = "block";
+                    loadingDiv.style.display = "none";
+                    btnPlayPause.innerText = "▶ 再生";
+                    btnPlayPause.style.backgroundColor = "#4CAF50";
+
+                    // ダウンロード処理
+                    const blob = new Blob(exportChunks, { type: options.mimeType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const date = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                    a.download = `pe-analysis-${date}.${options.mimeType === 'video/mp4' ? 'mp4' : 'webm'}`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                // 再生と録画を開始
+                exportRecorder.start();
+                video.play();
+                isPlaying = true;
+                playLoop();
+
+            }, { once: true });
+        });
+
+        // --- サイドバー ---
         sidebarToggle.addEventListener('click', () => {
             sidebar.classList.toggle('open');
             toggleIcon.innerText = sidebar.classList.contains('open') ? "▶" : "◀";
         });
 
-        // 動画とCanvasの反転処理を同期させる
         mirrorToggle.addEventListener('change', (e) => {
             isMirrored = e.target.checked;
             if (isMirrored) {
@@ -546,15 +478,15 @@
                 video.classList.remove('mirrored');
                 canvasElement.classList.remove('mirrored');
             }
-            processFrame(); 
+            if(!isExporting) processFrame(); 
         });
 
-        categorySelect.addEventListener('change', (e) => { currentCategory = e.target.value; updateModeSelect(); if(video.src) processFrame(); });
+        categorySelect.addEventListener('change', (e) => { currentCategory = e.target.value; updateModeSelect(); if(video.src && !isExporting) processFrame(); });
         modeSelect.addEventListener('change', (e) => {
             currentMode = e.target.value;
             currentSportConfig = sportsData[currentCategory].find(s => s.id === currentMode);
             instructionDiv.innerText = currentSportConfig.desc;
-            if(video.src) processFrame();
+            if(video.src && !isExporting) processFrame();
         });
     </script>
 </body>

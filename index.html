@@ -195,7 +195,8 @@
                     modelAssetPath: `https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task`, 
                     delegate: "CPU" 
                 },
-                runningMode: "IMAGE" 
+                runningMode: "IMAGE",
+                numPoses: 2 // 複数人(最大2人)を検出するように設定
             });
             loadingDiv.style.display = "none";
         }
@@ -267,7 +268,7 @@
             return angle;
         }
 
-        function drawHighlight(landmarks, p1Idx, p2Idx, p3Idx, color, labelText) {
+        function drawHighlight(landmarks, p1Idx, p2Idx, p3Idx, color, labelText, lineWidth) {
             const p1 = landmarks[p1Idx];
             const p2 = landmarks[p2Idx];
             const p3 = landmarks[p3Idx];
@@ -281,7 +282,7 @@
                 canvasCtx.lineTo(p2.x * canvasElement.width, p2.y * canvasElement.height);
                 canvasCtx.lineTo(p3.x * canvasElement.width, p3.y * canvasElement.height);
                 canvasCtx.strokeStyle = color;
-                canvasCtx.lineWidth = 300; 
+                canvasCtx.lineWidth = lineWidth; // 人数によって動的に太さを変更
                 canvasCtx.lineJoin = "round";
                 canvasCtx.lineCap = "round";
                 canvasCtx.stroke();
@@ -323,21 +324,27 @@
             canvasCtx.drawImage(video, 0, 0, canvasElement.width, canvasElement.height);
             
             if (results.landmarks && results.landmarks.length > 0) {
-                const landmarks = results.landmarks[0];
-                const drawingUtils = new DrawingUtils(canvasCtx);
-                
-                if (currentSportConfig && currentSportConfig.highlights) {
-                    currentSportConfig.highlights.forEach(h => {
-                        drawHighlight(landmarks, h.p1, h.p2, h.p3, h.color, h.label);
-                    });
+                // 検出された人数を取得し、2人以上なら線を20に、1人なら300に設定
+                const detectedCount = results.landmarks.length;
+                const highlightLineWidth = detectedCount > 1 ? 20 : 300;
+
+                // 検出されたすべての人に対して描画処理をループ実行
+                for (const landmarks of results.landmarks) {
+                    const drawingUtils = new DrawingUtils(canvasCtx);
+                    
+                    if (currentSportConfig && currentSportConfig.highlights) {
+                        currentSportConfig.highlights.forEach(h => {
+                            drawHighlight(landmarks, h.p1, h.p2, h.p3, h.color, h.label, highlightLineWidth);
+                        });
+                    }
+                    
+                    canvasCtx.globalAlpha = 1.0;
+                    drawingUtils.drawConnectors(
+                        landmarks, PoseLandmarker.POSE_CONNECTIONS,
+                        { color: "rgba(255, 255, 255, 1.0)", lineWidth: 3 }
+                    );
+                    drawingUtils.drawLandmarks(landmarks, { color: "rgba(255, 215, 0, 1.0)", lineWidth: 2, radius: 4 });
                 }
-                
-                canvasCtx.globalAlpha = 1.0;
-                drawingUtils.drawConnectors(
-                    landmarks, PoseLandmarker.POSE_CONNECTIONS,
-                    { color: "rgba(255, 255, 255, 1.0)", lineWidth: 3 }
-                );
-                drawingUtils.drawLandmarks(landmarks, { color: "rgba(255, 215, 0, 1.0)", lineWidth: 2, radius: 4 });
             }
             canvasCtx.restore();
         }
